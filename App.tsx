@@ -1,118 +1,109 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
+  PermissionsAndroid,
   SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useColorScheme,
   View,
+  Text,
+  Button,
 } from 'react-native';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+import {useDitto} from './ditto';
+import {CounterDocument, mockCounterDocument} from './ditto.helpers';
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const {
+    isDittoReady,
+    documents,
+    deleteDocuments,
+    updateDocument,
+    printNetworkDetails,
+  } = useDitto();
+  const [value, setValue] = useState(0);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  async function requestPermissions() {
+    const granted = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_ADVERTISE,
+      PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+    ]);
+
+    Object.entries(granted).forEach(([permission, result]) => {
+      if (result === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log(`${permission} granted`);
+      } else {
+        console.log(`${permission} denied`);
+      }
+    });
+  }
+
+  useEffect(() => {
+    requestPermissions();
+  }, []);
+
+  useEffect(() => {
+    console.log('documents', documents);
+    setValue(documents[0]?.value || 0);
+  }, [documents]);
+
+  if (!isDittoReady) {
+    return <Text>Loading...</Text>;
+  }
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+    <SafeAreaView style={{flex: 1, justifyContent: 'center'}}>
+      <InsertDocument
+        onPress={() =>
+          updateDocument({...mockCounterDocument, value: value + 1})
+        }
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
+      <ListDocuments documents={documents} />
+      <DeleteDocuments
+        deleteDocuments={deleteDocuments}
+        printNetworkDetails={printNetworkDetails}
+      />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
+const InsertDocument = ({onPress}: {onPress: () => void}) => {
+  return (
+    <View>
+      <Button onPress={onPress} title="increase" />
+    </View>
+  );
+};
+
+const ListDocuments = ({documents}: {documents: CounterDocument[]}) => {
+  return (
+    <View style={{marginVertical: 32, justifyContent: 'center'}}>
+      {documents.length === 0 && <Text>No documents...</Text>}
+      {documents.map((doc: CounterDocument) => (
+        <Text key={doc.id}>Value is: {doc.value}</Text>
+      ))}
+    </View>
+  );
+};
+
+const DeleteDocuments = ({
+  deleteDocuments,
+  printNetworkDetails,
+}: {
+  deleteDocuments: () => void;
+  printNetworkDetails: () => void;
+}) => {
+  return (
+    <View>
+      <Button onPress={deleteDocuments} title="Clear" color={'red'} />
+      <View style={{marginTop: 16}}>
+        <Button
+          onPress={printNetworkDetails}
+          title="Print connection details"
+          color={'green'}
+        />
+      </View>
+    </View>
+  );
+};
 
 export default App;
